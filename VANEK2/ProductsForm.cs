@@ -21,15 +21,71 @@ namespace VANEK2
         {
             dbHelper = new DatabaseHelper();
             InitializeComponent();
+            ApplyPermissions(); // Применяем права ДО применения стилей
             ApplyModernStyle();
             LoadProducts();
+        }
+
+        private void ApplyPermissions()
+        {
+            // Проверяем, что пользователь залогинен
+            if (!AuthHelper.IsLoggedIn)
+            {
+                // Если не залогинен, скрываем все кнопки управления
+                btnAdd.Visible = false;
+                btnEdit.Visible = false;
+                btnDelete.Visible = false;
+                btnAdd.Enabled = false;
+                btnEdit.Enabled = false;
+                btnDelete.Enabled = false;
+                this.Text = "Управление товарами (Не авторизован)";
+                return;
+            }
+
+            // Администратор и Менеджер имеют полный доступ к управлению товарами
+            bool canManage = AuthHelper.CanManageProducts;
+            bool isAdmin = AuthHelper.IsAdmin;
+            bool isManager = AuthHelper.IsManager;
+            
+            // Отладочная информация
+            System.Diagnostics.Debug.WriteLine($"ApplyPermissions: IsLoggedIn={AuthHelper.IsLoggedIn}, IsAdmin={isAdmin}, IsManager={isManager}, CanManage={canManage}, Role={AuthHelper.CurrentUser?.Role}");
+            
+            // Устанавливаем видимость и доступность кнопок
+            // ВАЖНО: Устанавливаем Visible и Enabled явно
+            btnAdd.Visible = canManage;
+            btnEdit.Visible = canManage;
+            btnDelete.Visible = canManage;
+            btnAdd.Enabled = canManage;
+            btnEdit.Enabled = canManage;
+            btnDelete.Enabled = canManage;
+            
+            // Принудительно обновляем отображение
+            this.Invalidate();
+            this.Update();
+            
+            // Визуальная индикация роли
+            if (isAdmin)
+            {
+                this.Text = "Управление товарами (Администратор) - Полный доступ";
+            }
+            else if (isManager && !isAdmin)
+            {
+                this.Text = "Управление товарами (Менеджер)";
+            }
+            else
+            {
+                this.Text = "Просмотр товаров (Продавец) - Только просмотр";
+            }
+            
+            // Дополнительная проверка для отладки
+            System.Diagnostics.Debug.WriteLine($"Кнопки после ApplyPermissions: Add={btnAdd.Visible}, Edit={btnEdit.Visible}, Delete={btnDelete.Visible}");
         }
 
         private void ApplyModernStyle()
         {
             this.BackColor = Color.FromArgb(245, 245, 250);
             
-            // Стиль кнопок
+            // Стиль кнопок (применяем стили ко всем кнопкам для правильного отображения)
             btnAdd.BackColor = Color.FromArgb(46, 125, 50);
             btnAdd.ForeColor = Color.White;
             btnAdd.FlatStyle = FlatStyle.Flat;
@@ -108,6 +164,9 @@ namespace VANEK2
             this.btnRefresh.UseVisualStyleBackColor = true;
             this.btnRefresh.Click += new EventHandler(btnRefresh_Click);
             // 
+            // Примечание: кнопки управления товарами (Add, Edit, Delete) 
+            // будут показаны/скрыты в методе ApplyPermissions() в зависимости от роли пользователя
+            // 
             // btnAdd
             // 
             this.btnAdd.Location = new System.Drawing.Point(480, 10);
@@ -116,6 +175,8 @@ namespace VANEK2
             this.btnAdd.TabIndex = 3;
             this.btnAdd.Text = "Добавить";
             this.btnAdd.UseVisualStyleBackColor = true;
+            this.btnAdd.Visible = true; // По умолчанию видима
+            this.btnAdd.Enabled = true; // По умолчанию включена
             this.btnAdd.Click += new EventHandler(btnAdd_Click);
             // 
             // btnEdit
@@ -126,6 +187,8 @@ namespace VANEK2
             this.btnEdit.TabIndex = 4;
             this.btnEdit.Text = "Изменить";
             this.btnEdit.UseVisualStyleBackColor = true;
+            this.btnEdit.Visible = true; // По умолчанию видима
+            this.btnEdit.Enabled = true; // По умолчанию включена
             this.btnEdit.Click += new EventHandler(btnEdit_Click);
             // 
             // btnDelete
@@ -136,6 +199,8 @@ namespace VANEK2
             this.btnDelete.TabIndex = 5;
             this.btnDelete.Text = "Удалить";
             this.btnDelete.UseVisualStyleBackColor = true;
+            this.btnDelete.Visible = true; // По умолчанию видима
+            this.btnDelete.Enabled = true; // По умолчанию включена
             this.btnDelete.Click += new EventHandler(btnDelete_Click);
             // 
             // dgvProducts
@@ -219,10 +284,19 @@ namespace VANEK2
         {
             txtSearch.Clear();
             LoadProducts();
+            // Обновляем права доступа при обновлении
+            ApplyPermissions();
         }
 
         private void btnAdd_Click(object sender, EventArgs e)
         {
+            // Дополнительная проверка прав доступа
+            if (!AuthHelper.CanManageProducts)
+            {
+                MessageBox.Show("У вас нет прав для добавления товаров", "Доступ запрещен", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             using (var form = new ProductEditForm())
             {
                 if (form.ShowDialog() == DialogResult.OK)
@@ -234,6 +308,13 @@ namespace VANEK2
 
         private void btnEdit_Click(object sender, EventArgs e)
         {
+            // Дополнительная проверка прав доступа
+            if (!AuthHelper.CanManageProducts)
+            {
+                MessageBox.Show("У вас нет прав для редактирования товаров", "Доступ запрещен", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             if (dgvProducts.SelectedRows.Count > 0)
             {
                 var selectedRow = dgvProducts.SelectedRows[0];
@@ -258,14 +339,28 @@ namespace VANEK2
 
         private void btnDelete_Click(object sender, EventArgs e)
         {
+            // Дополнительная проверка прав доступа
+            if (!AuthHelper.CanManageProducts)
+            {
+                MessageBox.Show("У вас нет прав для удаления товаров", "Доступ запрещен", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             if (dgvProducts.SelectedRows.Count > 0)
             {
                 var selectedRow = dgvProducts.SelectedRows[0];
                 int productId = (int)selectedRow.Cells["Id"].Value;
                 string productName = selectedRow.Cells["Название"].Value.ToString();
 
-                if (MessageBox.Show($"Вы уверены, что хотите удалить товар '{productName}'?", "Подтверждение", 
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                // Дополнительное предупреждение для администратора
+                string message = $"Вы уверены, что хотите удалить товар '{productName}'?";
+                if (AuthHelper.IsAdmin)
+                {
+                    message += "\n\nВнимание: Вы выполняете операцию как администратор. Это действие нельзя отменить.";
+                }
+
+                if (MessageBox.Show(message, "Подтверждение удаления", 
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                 {
                     try
                     {

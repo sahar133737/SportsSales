@@ -501,6 +501,237 @@ namespace VANEK2
                 return dataTable;
             }
         }
+
+        // Отчет по продажам по месяцам
+        public DataTable GetSalesByMonth(DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = @"
+                    SELECT 
+                        FORMAT(SaleDate, 'yyyy-MM') as Месяц,
+                        COUNT(*) as КоличествоПродаж,
+                        SUM(TotalAmount) as СуммаПродаж,
+                        AVG(TotalAmount) as СреднийЧек,
+                        MIN(TotalAmount) as МинимальныйЧек,
+                        MAX(TotalAmount) as МаксимальныйЧек
+                    FROM Sales
+                    WHERE 1=1";
+                
+                if (fromDate.HasValue)
+                    query += " AND SaleDate >= @FromDate";
+                if (toDate.HasValue)
+                    query += " AND SaleDate <= @ToDate";
+                
+                query += @"
+                    GROUP BY FORMAT(SaleDate, 'yyyy-MM')
+                    ORDER BY Месяц DESC";
+
+                var command = new SqlCommand(query, connection);
+                if (fromDate.HasValue)
+                    command.Parameters.AddWithValue("@FromDate", fromDate.Value);
+                if (toDate.HasValue)
+                    command.Parameters.AddWithValue("@ToDate", toDate.Value.AddDays(1).AddSeconds(-1));
+
+                var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                return dataTable;
+            }
+        }
+
+        // Отчет по прибыльности товаров
+        public DataTable GetProductProfitability(DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = @"
+                    SELECT 
+                        p.Name as Товар,
+                        p.Category as Категория,
+                        p.Price as ЦенаЗакупки,
+                        SUM(si.Quantity) as Продано,
+                        SUM(si.TotalPrice) as Выручка,
+                        (SUM(si.TotalPrice) - (p.Price * SUM(si.Quantity))) as Прибыль,
+                        (SUM(si.TotalPrice) / NULLIF(SUM(si.Quantity), 0)) as СредняяЦенаПродажи
+                    FROM SaleItems si
+                    INNER JOIN Sales s ON si.SaleId = s.Id
+                    INNER JOIN Products p ON si.ProductId = p.Id
+                    WHERE 1=1";
+                
+                if (fromDate.HasValue)
+                    query += " AND s.SaleDate >= @FromDate";
+                if (toDate.HasValue)
+                    query += " AND s.SaleDate <= @ToDate";
+                
+                query += @"
+                    GROUP BY p.Name, p.Category, p.Price
+                    ORDER BY Прибыль DESC";
+
+                var command = new SqlCommand(query, connection);
+                if (fromDate.HasValue)
+                    command.Parameters.AddWithValue("@FromDate", fromDate.Value);
+                if (toDate.HasValue)
+                    command.Parameters.AddWithValue("@ToDate", toDate.Value.AddDays(1).AddSeconds(-1));
+
+                var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                return dataTable;
+            }
+        }
+
+        // Отчет по оборачиваемости товаров
+        public DataTable GetProductTurnover(DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = @"
+                    SELECT 
+                        p.Name as Товар,
+                        p.Category as Категория,
+                        p.Quantity as ТекущийОстаток,
+                        SUM(si.Quantity) as Продано,
+                        CASE 
+                            WHEN p.Quantity > 0 THEN CAST(SUM(si.Quantity) AS FLOAT) / p.Quantity
+                            ELSE 0
+                        END as Оборачиваемость,
+                        AVG(DATEDIFF(day, s.SaleDate, GETDATE())) as СреднийСрокХранения
+                    FROM Products p
+                    LEFT JOIN SaleItems si ON p.Id = si.ProductId
+                    LEFT JOIN Sales s ON si.SaleId = s.Id";
+                
+                if (fromDate.HasValue || toDate.HasValue)
+                {
+                    query += " WHERE 1=1";
+                    if (fromDate.HasValue)
+                        query += " AND s.SaleDate >= @FromDate";
+                    if (toDate.HasValue)
+                        query += " AND s.SaleDate <= @ToDate";
+                }
+                
+                query += @"
+                    GROUP BY p.Name, p.Category, p.Quantity
+                    ORDER BY Оборачиваемость DESC";
+
+                var command = new SqlCommand(query, connection);
+                if (fromDate.HasValue)
+                    command.Parameters.AddWithValue("@FromDate", fromDate.Value);
+                if (toDate.HasValue)
+                    command.Parameters.AddWithValue("@ToDate", toDate.Value.AddDays(1).AddSeconds(-1));
+
+                var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                return dataTable;
+            }
+        }
+
+        // Отчет по динамике продаж
+        public DataTable GetSalesDynamics(DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = @"
+                    SELECT 
+                        CAST(SaleDate AS DATE) as Дата,
+                        COUNT(*) as КоличествоПродаж,
+                        SUM(TotalAmount) as СуммаПродаж,
+                        COUNT(DISTINCT CustomerName) as УникальныхКлиентов,
+                        AVG(TotalAmount) as СреднийЧек
+                    FROM Sales
+                    WHERE 1=1";
+                
+                if (fromDate.HasValue)
+                    query += " AND SaleDate >= @FromDate";
+                if (toDate.HasValue)
+                    query += " AND SaleDate <= @ToDate";
+                
+                query += @"
+                    GROUP BY CAST(SaleDate AS DATE)
+                    ORDER BY Дата DESC";
+
+                var command = new SqlCommand(query, connection);
+                if (fromDate.HasValue)
+                    command.Parameters.AddWithValue("@FromDate", fromDate.Value);
+                if (toDate.HasValue)
+                    command.Parameters.AddWithValue("@ToDate", toDate.Value.AddDays(1).AddSeconds(-1));
+
+                var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                return dataTable;
+            }
+        }
+
+        // Отчет по среднему чеку
+        public DataTable GetAverageCheckReport(DateTime? fromDate = null, DateTime? toDate = null)
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = @"
+                    SELECT 
+                        FORMAT(SaleDate, 'yyyy-MM-dd') as Дата,
+                        COUNT(*) as КоличествоЧеков,
+                        AVG(TotalAmount) as СреднийЧек,
+                        MIN(TotalAmount) as МинимальныйЧек,
+                        MAX(TotalAmount) as МаксимальныйЧек,
+                        SUM(TotalAmount) as ОбщаяСумма
+                    FROM Sales
+                    WHERE 1=1";
+                
+                if (fromDate.HasValue)
+                    query += " AND SaleDate >= @FromDate";
+                if (toDate.HasValue)
+                    query += " AND SaleDate <= @ToDate";
+                
+                query += @"
+                    GROUP BY FORMAT(SaleDate, 'yyyy-MM-dd')
+                    ORDER BY Дата DESC";
+
+                var command = new SqlCommand(query, connection);
+                if (fromDate.HasValue)
+                    command.Parameters.AddWithValue("@FromDate", fromDate.Value);
+                if (toDate.HasValue)
+                    command.Parameters.AddWithValue("@ToDate", toDate.Value.AddDays(1).AddSeconds(-1));
+
+                var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                return dataTable;
+            }
+        }
+
+        // Отчет по остаткам по категориям
+        public DataTable GetStockByCategory()
+        {
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                string query = @"
+                    SELECT 
+                        Category as Категория,
+                        COUNT(*) as КоличествоТоваров,
+                        SUM(Quantity) as ОбщийОстаток,
+                        AVG(Price) as СредняяЦена,
+                        SUM(Price * Quantity) as СтоимостьОстатка
+                    FROM Products
+                    WHERE Category IS NOT NULL
+                    GROUP BY Category
+                    ORDER BY СтоимостьОстатка DESC";
+
+                var command = new SqlCommand(query, connection);
+                var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+                adapter.Fill(dataTable);
+                return dataTable;
+            }
+        }
     }
 }
 

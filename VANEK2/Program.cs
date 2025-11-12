@@ -16,7 +16,16 @@ namespace VANEK2
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+            
+            // Показываем форму входа
+            using (var loginForm = new LoginForm())
+            {
+                if (loginForm.ShowDialog() == DialogResult.OK)
+                {
+                    // Если вход успешен, показываем главную форму
+                    Application.Run(new Form1());
+                }
+            }
         }
     }
 }

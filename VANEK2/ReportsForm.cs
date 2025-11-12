@@ -33,8 +33,8 @@ namespace VANEK2
         {
             dbHelper = new DatabaseHelper();
             InitializeComponent();
-            LoadReport();
             ApplyModernStyle();
+            LoadReport();
         }
 
         private void ApplyModernStyle()
@@ -115,7 +115,13 @@ namespace VANEK2
             "Топ продаваемых товаров",
             "Продажи по категориям",
             "Продажи по дням",
+            "Продажи по месяцам",
+            "Динамика продаж",
+            "Средний чек",
+            "Прибыльность товаров",
+            "Оборачиваемость товаров",
             "Остатки товаров",
+            "Остатки по категориям",
             "Товары с низким остатком",
             "Отчет по клиентам"});
             this.cmbReportType.Location = new System.Drawing.Point(95, 17);
@@ -217,6 +223,8 @@ namespace VANEK2
             this.pnlStatistics.Name = "pnlStatistics";
             this.pnlStatistics.Size = new System.Drawing.Size(1115, 50);
             this.pnlStatistics.TabIndex = 10;
+            this.pnlStatistics.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             // 
             // lblTotalSales
             // 
@@ -290,9 +298,13 @@ namespace VANEK2
             this.dgvReport.Location = new System.Drawing.Point(15, 115);
             this.dgvReport.Name = "dgvReport";
             this.dgvReport.ReadOnly = true;
+            this.dgvReport.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            this.dgvReport.MultiSelect = false;
             this.dgvReport.Size = new System.Drawing.Size(1115, 450);
             this.dgvReport.TabIndex = 11;
-            this.dgvReport.Dock = DockStyle.Fill;
+            this.dgvReport.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             // 
             // ReportsForm
             // 
@@ -321,11 +333,13 @@ namespace VANEK2
 
         private void cmbReportType_SelectedIndexChanged(object sender, EventArgs e)
         {
-            bool isLowStockReport = cmbReportType.SelectedIndex == 5;
+            bool isLowStockReport = cmbReportType.SelectedIndex == 11;
             lblLowStockThreshold.Visible = isLowStockReport;
             numLowStockThreshold.Visible = isLowStockReport;
             
-            bool needsDateFilter = cmbReportType.SelectedIndex != 4 && cmbReportType.SelectedIndex != 5;
+            // Отчеты, которые не требуют фильтра по датам
+            int[] reportsWithoutDateFilter = { 9, 10, 11 }; // Остатки товаров, Остатки по категориям, Товары с низким остатком
+            bool needsDateFilter = !reportsWithoutDateFilter.Contains(cmbReportType.SelectedIndex);
             lblFromDate.Visible = needsDateFilter;
             dtpFromDate.Visible = needsDateFilter;
             lblToDate.Visible = needsDateFilter;
@@ -336,6 +350,11 @@ namespace VANEK2
         {
             try
             {
+                if (cmbReportType.SelectedIndex < 0)
+                {
+                    cmbReportType.SelectedIndex = 0;
+                }
+
                 DataTable reportData = null;
                 bool showStatistics = true;
 
@@ -355,7 +374,14 @@ namespace VANEK2
 
                     case 1: // Топ продаваемых товаров
                         reportData = dbHelper.GetTopSellingProducts(dtpFromDate.Value, dtpToDate.Value, 20);
-                        dgvReport.DataSource = reportData;
+                        if (reportData != null && reportData.Rows.Count > 0)
+                        {
+                            dgvReport.DataSource = reportData;
+                        }
+                        else
+                        {
+                            dgvReport.DataSource = null;
+                        }
                         break;
 
                     case 2: // Продажи по категориям
@@ -368,22 +394,77 @@ namespace VANEK2
                         dgvReport.DataSource = reportData;
                         break;
 
-                    case 4: // Остатки товаров
+                    case 4: // Продажи по месяцам
+                        reportData = dbHelper.GetSalesByMonth(dtpFromDate.Value, dtpToDate.Value);
+                        dgvReport.DataSource = reportData;
+                        break;
+
+                    case 5: // Динамика продаж
+                        reportData = dbHelper.GetSalesDynamics(dtpFromDate.Value, dtpToDate.Value);
+                        dgvReport.DataSource = reportData;
+                        break;
+
+                    case 6: // Средний чек
+                        reportData = dbHelper.GetAverageCheckReport(dtpFromDate.Value, dtpToDate.Value);
+                        dgvReport.DataSource = reportData;
+                        break;
+
+                    case 7: // Прибыльность товаров
+                        reportData = dbHelper.GetProductProfitability(dtpFromDate.Value, dtpToDate.Value);
+                        dgvReport.DataSource = reportData;
+                        break;
+
+                    case 8: // Оборачиваемость товаров
+                        reportData = dbHelper.GetProductTurnover(dtpFromDate.Value, dtpToDate.Value);
+                        dgvReport.DataSource = reportData;
+                        break;
+
+                    case 9: // Остатки товаров
                         reportData = dbHelper.GetProductsStockReport();
                         dgvReport.DataSource = reportData;
                         showStatistics = false;
                         break;
 
-                    case 5: // Товары с низким остатком
+                    case 10: // Остатки по категориям
+                        reportData = dbHelper.GetStockByCategory();
+                        dgvReport.DataSource = reportData;
+                        showStatistics = false;
+                        break;
+
+                    case 11: // Товары с низким остатком
                         reportData = dbHelper.GetLowStockProducts((int)numLowStockThreshold.Value);
                         dgvReport.DataSource = reportData;
                         showStatistics = false;
                         break;
 
-                    case 6: // Отчет по клиентам
+                    case 12: // Отчет по клиентам
                         reportData = dbHelper.GetCustomersReport(dtpFromDate.Value, dtpToDate.Value);
                         dgvReport.DataSource = reportData;
                         break;
+                }
+
+                // Проверка на пустые данные
+                bool isEmpty = false;
+                if (dgvReport.DataSource == null)
+                {
+                    isEmpty = true;
+                }
+                else if (dgvReport.DataSource is DataTable)
+                {
+                    isEmpty = ((DataTable)dgvReport.DataSource).Rows.Count == 0;
+                }
+                else if (dgvReport.DataSource is System.Collections.IList)
+                {
+                    isEmpty = ((System.Collections.IList)dgvReport.DataSource).Count == 0;
+                }
+
+                if (isEmpty && cmbReportType.SelectedIndex >= 0)
+                {
+                    // Не показываем сообщение для отчетов по остаткам, если они могут быть пустыми
+                    if (cmbReportType.SelectedIndex != 9 && cmbReportType.SelectedIndex != 10 && cmbReportType.SelectedIndex != 11)
+                    {
+                        // MessageBox.Show("Нет данных для отображения за выбранный период", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                 }
 
                 // Форматирование числовых колонок
@@ -415,17 +496,34 @@ namespace VANEK2
 
         private void FormatDataGridView()
         {
+            if (dgvReport.Columns.Count == 0) return;
+
             foreach (DataGridViewColumn column in dgvReport.Columns)
             {
-                if (column.Name.Contains("Сумма") || column.Name.Contains("Цена") || column.Name.Contains("Выручка") || 
-                    column.Name.Contains("Стоимость") || column.Name.Contains("Чек") || column.Name.Contains("Revenue"))
+                string columnName = column.Name ?? "";
+                string headerText = column.HeaderText ?? "";
+                
+                // Форматирование денежных колонок
+                if (columnName.Contains("Сумма") || columnName.Contains("Цена") || columnName.Contains("Выручка") || 
+                    columnName.Contains("Стоимость") || columnName.Contains("Чек") || columnName.Contains("Revenue") ||
+                    columnName.Contains("Прибыль") || columnName.Contains("СредняяЦена") ||
+                    headerText.Contains("Сумма") || headerText.Contains("Цена") || headerText.Contains("Выручка") ||
+                    headerText.Contains("Стоимость") || headerText.Contains("Чек") || headerText.Contains("Прибыль"))
                 {
                     column.DefaultCellStyle.Format = "N2";
                     column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
                 }
-                else if (column.Name.Contains("Количество") || column.Name.Contains("Остаток") || column.Name.Contains("Quantity"))
+                // Форматирование числовых колонок
+                else if (columnName.Contains("Количество") || columnName.Contains("Остаток") || columnName.Contains("Quantity") ||
+                         columnName.Contains("Продано") || columnName.Contains("Оборачиваемость") ||
+                         headerText.Contains("Количество") || headerText.Contains("Остаток") || headerText.Contains("Продано"))
                 {
                     column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+                }
+                // Выравнивание дат по центру
+                else if (columnName.Contains("Дата") || headerText.Contains("Дата") || columnName.Contains("Месяц") || headerText.Contains("Месяц"))
+                {
+                    column.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
                 }
             }
         }

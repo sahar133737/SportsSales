@@ -73,6 +73,28 @@ BEGIN
 END
 GO
 
+-- Таблица пользователей
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Users]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[Users] (
+        [Id] INT IDENTITY(1,1) PRIMARY KEY,
+        [Username] NVARCHAR(50) NOT NULL UNIQUE,
+        [Password] NVARCHAR(255) NOT NULL,
+        [FullName] NVARCHAR(100) NOT NULL,
+        [Role] NVARCHAR(20) NOT NULL DEFAULT 'Seller',
+        [IsActive] BIT NOT NULL DEFAULT 1,
+        [CreatedDate] DATETIME NOT NULL DEFAULT GETDATE()
+    );
+END
+GO
+
+-- Индекс для пользователей
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Users_Username')
+BEGIN
+    CREATE INDEX IX_Users_Username ON [dbo].[Users]([Username]);
+END
+GO
+
 -- Вставка тестовых данных
 IF NOT EXISTS (SELECT * FROM [dbo].[Products])
 BEGIN
@@ -83,6 +105,16 @@ BEGIN
     (N'Гантели 5кг', N'Тренажеры', 2500.00, 30, N'Набор гантелей 5кг'),
     (N'Скакалка', N'Аксессуары', 500.00, 50, N'Профессиональная скакалка'),
     (N'Коврик для йоги', N'Аксессуары', 1200.00, 25, N'Антискользящий коврик');
+END
+GO
+
+-- Вставка тестовых пользователей (пароль: admin123 и seller123)
+IF NOT EXISTS (SELECT * FROM [dbo].[Users])
+BEGIN
+    INSERT INTO [dbo].[Users] ([Username], [Password], [FullName], [Role], [IsActive]) VALUES
+    (N'admin', N'admin123', N'Администратор', N'Admin', 1),
+    (N'seller', N'seller123', N'Продавец', N'Seller', 1),
+    (N'manager', N'manager123', N'Менеджер', N'Manager', 1);
 END
 GO
 
