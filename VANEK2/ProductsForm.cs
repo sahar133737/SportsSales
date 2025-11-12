@@ -21,9 +21,74 @@ namespace VANEK2
         {
             dbHelper = new DatabaseHelper();
             InitializeComponent();
-            ApplyPermissions(); // Применяем права ДО применения стилей
-            ApplyModernStyle();
+            ApplyModernStyle(); // Сначала применяем стили
+            ApplyPermissions(); // Затем применяем права (это может изменить видимость)
             LoadProducts();
+            
+            // Принудительно обновляем форму после инициализации
+            this.Refresh();
+            
+            // Дополнительная проверка после загрузки
+            this.Shown += ProductsForm_Shown;
+        }
+        
+        private void ProductsForm_Shown(object sender, EventArgs e)
+        {
+            // Обновляем позиции кнопок после показа формы
+            UpdateButtonPositions();
+            
+            // Обновляем размер DataGridView
+            if (dgvProducts != null && this.ClientSize.Width > 0 && this.ClientSize.Height > 0)
+            {
+                dgvProducts.Size = new System.Drawing.Size(
+                    this.ClientSize.Width - 20, 
+                    this.ClientSize.Height - 60
+                );
+            }
+            
+            // После показа формы еще раз применяем права доступа
+            ApplyPermissions();
+            
+            // Обновляем layout после показа формы
+            this.PerformLayout();
+            this.Invalidate();
+            this.Update();
+            
+            // Проверяем видимость кнопок
+            if (AuthHelper.CanManageProducts)
+            {
+                System.Diagnostics.Debug.WriteLine($"Форма показана. Кнопки должны быть видны: Add={btnAdd.Visible}, Edit={btnEdit.Visible}, Delete={btnDelete.Visible}");
+            }
+        }
+        
+        private void UpdateButtonPositions()
+        {
+            // Обновляем позиции кнопок справа налево с большими отступами
+            int buttonWidth = 110;
+            int buttonSpacing = 25; // Увеличенный отступ между кнопками для лучшего разделения
+            int rightMargin = 20;
+            
+            btnDelete.Location = new System.Drawing.Point(this.ClientSize.Width - rightMargin - buttonWidth, 10);
+            btnEdit.Location = new System.Drawing.Point(this.ClientSize.Width - rightMargin - buttonWidth * 2 - buttonSpacing, 10);
+            btnAdd.Location = new System.Drawing.Point(this.ClientSize.Width - rightMargin - buttonWidth * 3 - buttonSpacing * 2, 10);
+        }
+        
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (btnAdd != null && btnEdit != null && btnDelete != null)
+            {
+                UpdateButtonPositions();
+            }
+            
+            // Обновляем размер DataGridView при изменении размера формы
+            if (dgvProducts != null && this.ClientSize.Width > 0 && this.ClientSize.Height > 0)
+            {
+                dgvProducts.Size = new System.Drawing.Size(
+                    this.ClientSize.Width - 20, 
+                    this.ClientSize.Height - 60
+                );
+            }
         }
 
         private void ApplyPermissions()
@@ -79,36 +144,94 @@ namespace VANEK2
             
             // Дополнительная проверка для отладки
             System.Diagnostics.Debug.WriteLine($"Кнопки после ApplyPermissions: Add={btnAdd.Visible}, Edit={btnEdit.Visible}, Delete={btnDelete.Visible}");
+            System.Diagnostics.Debug.WriteLine($"Кнопки в Controls: Add={this.Controls.Contains(btnAdd)}, Edit={this.Controls.Contains(btnEdit)}, Delete={this.Controls.Contains(btnDelete)}");
+            System.Diagnostics.Debug.WriteLine($"Позиции кнопок: Add=({btnAdd.Location.X},{btnAdd.Location.Y}), Edit=({btnEdit.Location.X},{btnEdit.Location.Y}), Delete=({btnDelete.Location.X},{btnDelete.Location.Y})");
+            
+            // Принудительно показываем кнопки если у пользователя есть права
+            if (canManage)
+            {
+                // Убеждаемся, что кнопки видны и на переднем плане
+                btnAdd.BringToFront();
+                btnEdit.BringToFront();
+                btnDelete.BringToFront();
+                
+                // Принудительно устанавливаем видимость
+                btnAdd.Show();
+                btnEdit.Show();
+                btnDelete.Show();
+                
+                // Обновляем родительский контейнер
+                if (this.Parent != null)
+                {
+                    this.Parent.Invalidate();
+                    this.Parent.Update();
+                }
+            }
+            
+            // Принудительное обновление формы
+            this.Invalidate();
+            this.Update();
         }
 
         private void ApplyModernStyle()
         {
             this.BackColor = Color.FromArgb(245, 245, 250);
             
-            // Стиль кнопок (применяем стили ко всем кнопкам для правильного отображения)
-            btnAdd.BackColor = Color.FromArgb(46, 125, 50);
-            btnAdd.ForeColor = Color.White;
-            btnAdd.FlatStyle = FlatStyle.Flat;
-            btnAdd.FlatAppearance.BorderSize = 0;
-            btnAdd.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+            // Стиль кнопки "Добавить" - зеленая с эффектами
+            if (btnAdd != null)
+            {
+                btnAdd.BackColor = Color.FromArgb(46, 125, 50);
+                btnAdd.ForeColor = Color.White;
+                btnAdd.FlatStyle = FlatStyle.Flat;
+                btnAdd.FlatAppearance.BorderSize = 0;
+                btnAdd.FlatAppearance.MouseOverBackColor = Color.FromArgb(56, 142, 60);
+                btnAdd.FlatAppearance.MouseDownBackColor = Color.FromArgb(27, 94, 32);
+                btnAdd.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+                btnAdd.Cursor = Cursors.Hand;
+                // Добавляем небольшую тень через Padding
+                btnAdd.Padding = new Padding(0, 0, 0, 2);
+            }
 
-            btnEdit.BackColor = Color.FromArgb(25, 118, 210);
-            btnEdit.ForeColor = Color.White;
-            btnEdit.FlatStyle = FlatStyle.Flat;
-            btnEdit.FlatAppearance.BorderSize = 0;
-            btnEdit.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+            // Стиль кнопки "Изменить" - синяя с эффектами
+            if (btnEdit != null)
+            {
+                btnEdit.BackColor = Color.FromArgb(25, 118, 210);
+                btnEdit.ForeColor = Color.White;
+                btnEdit.FlatStyle = FlatStyle.Flat;
+                btnEdit.FlatAppearance.BorderSize = 0;
+                btnEdit.FlatAppearance.MouseOverBackColor = Color.FromArgb(30, 136, 229);
+                btnEdit.FlatAppearance.MouseDownBackColor = Color.FromArgb(13, 71, 161);
+                btnEdit.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+                btnEdit.Cursor = Cursors.Hand;
+                btnEdit.Padding = new Padding(0, 0, 0, 2);
+            }
 
-            btnDelete.BackColor = Color.FromArgb(198, 40, 40);
-            btnDelete.ForeColor = Color.White;
-            btnDelete.FlatStyle = FlatStyle.Flat;
-            btnDelete.FlatAppearance.BorderSize = 0;
-            btnDelete.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+            // Стиль кнопки "Удалить" - красная с эффектами
+            if (btnDelete != null)
+            {
+                btnDelete.BackColor = Color.FromArgb(198, 40, 40);
+                btnDelete.ForeColor = Color.White;
+                btnDelete.FlatStyle = FlatStyle.Flat;
+                btnDelete.FlatAppearance.BorderSize = 0;
+                btnDelete.FlatAppearance.MouseOverBackColor = Color.FromArgb(211, 47, 47);
+                btnDelete.FlatAppearance.MouseDownBackColor = Color.FromArgb(183, 28, 28);
+                btnDelete.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+                btnDelete.Cursor = Cursors.Hand;
+                btnDelete.Padding = new Padding(0, 0, 0, 2);
+            }
 
-            btnRefresh.BackColor = Color.FromArgb(70, 130, 180);
-            btnRefresh.ForeColor = Color.White;
-            btnRefresh.FlatStyle = FlatStyle.Flat;
-            btnRefresh.FlatAppearance.BorderSize = 0;
-            btnRefresh.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+            // Стиль кнопки "Обновить"
+            if (btnRefresh != null)
+            {
+                btnRefresh.BackColor = Color.FromArgb(70, 130, 180);
+                btnRefresh.ForeColor = Color.White;
+                btnRefresh.FlatStyle = FlatStyle.Flat;
+                btnRefresh.FlatAppearance.BorderSize = 0;
+                btnRefresh.FlatAppearance.MouseOverBackColor = Color.FromArgb(85, 150, 205);
+                btnRefresh.FlatAppearance.MouseDownBackColor = Color.FromArgb(55, 110, 155);
+                btnRefresh.Font = new Font("Microsoft Sans Serif", 9F, FontStyle.Bold);
+                btnRefresh.Cursor = Cursors.Hand;
+            }
 
             // Стиль DataGridView
             dgvProducts.BackgroundColor = Color.White;
@@ -136,6 +259,7 @@ namespace VANEK2
             this.lblSearch = new Label();
             ((System.ComponentModel.ISupportInitialize)(this.dgvProducts)).BeginInit();
             this.SuspendLayout();
+            
             // 
             // lblSearch
             // 
@@ -145,63 +269,69 @@ namespace VANEK2
             this.lblSearch.Size = new System.Drawing.Size(42, 13);
             this.lblSearch.TabIndex = 0;
             this.lblSearch.Text = "Поиск:";
+            this.lblSearch.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            
             // 
             // txtSearch
             // 
             this.txtSearch.Location = new System.Drawing.Point(58, 12);
             this.txtSearch.Name = "txtSearch";
-            this.txtSearch.Size = new System.Drawing.Size(300, 20);
+            this.txtSearch.Size = new System.Drawing.Size(200, 20);
             this.txtSearch.TabIndex = 1;
+            this.txtSearch.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             this.txtSearch.TextChanged += new EventHandler(txtSearch_TextChanged);
+            
             // 
             // btnRefresh
             // 
-            this.btnRefresh.Location = new System.Drawing.Point(370, 10);
+            this.btnRefresh.Location = new System.Drawing.Point(270, 10);
             this.btnRefresh.Name = "btnRefresh";
-            this.btnRefresh.Size = new System.Drawing.Size(100, 25);
+            this.btnRefresh.Size = new System.Drawing.Size(100, 30);
             this.btnRefresh.TabIndex = 2;
             this.btnRefresh.Text = "Обновить";
             this.btnRefresh.UseVisualStyleBackColor = true;
+            this.btnRefresh.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             this.btnRefresh.Click += new EventHandler(btnRefresh_Click);
+            
             // 
-            // Примечание: кнопки управления товарами (Add, Edit, Delete) 
-            // будут показаны/скрыты в методе ApplyPermissions() в зависимости от роли пользователя
+            // btnDelete (самая правая кнопка)
             // 
-            // btnAdd
-            // 
-            this.btnAdd.Location = new System.Drawing.Point(480, 10);
-            this.btnAdd.Name = "btnAdd";
-            this.btnAdd.Size = new System.Drawing.Size(100, 25);
-            this.btnAdd.TabIndex = 3;
-            this.btnAdd.Text = "Добавить";
-            this.btnAdd.UseVisualStyleBackColor = true;
-            this.btnAdd.Visible = true; // По умолчанию видима
-            this.btnAdd.Enabled = true; // По умолчанию включена
-            this.btnAdd.Click += new EventHandler(btnAdd_Click);
-            // 
-            // btnEdit
-            // 
-            this.btnEdit.Location = new System.Drawing.Point(590, 10);
-            this.btnEdit.Name = "btnEdit";
-            this.btnEdit.Size = new System.Drawing.Size(100, 25);
-            this.btnEdit.TabIndex = 4;
-            this.btnEdit.Text = "Изменить";
-            this.btnEdit.UseVisualStyleBackColor = true;
-            this.btnEdit.Visible = true; // По умолчанию видима
-            this.btnEdit.Enabled = true; // По умолчанию включена
-            this.btnEdit.Click += new EventHandler(btnEdit_Click);
-            // 
-            // btnDelete
-            // 
-            this.btnDelete.Location = new System.Drawing.Point(700, 10);
-            this.btnDelete.Name = "btnDelete";
-            this.btnDelete.Size = new System.Drawing.Size(100, 25);
+            this.btnDelete.Size = new System.Drawing.Size(110, 35);
             this.btnDelete.TabIndex = 5;
             this.btnDelete.Text = "Удалить";
             this.btnDelete.UseVisualStyleBackColor = true;
-            this.btnDelete.Visible = true; // По умолчанию видима
-            this.btnDelete.Enabled = true; // По умолчанию включена
+            this.btnDelete.Visible = true;
+            this.btnDelete.Enabled = true;
+            this.btnDelete.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            this.btnDelete.Location = new System.Drawing.Point(800, 10); // Временная позиция, будет обновлена
             this.btnDelete.Click += new EventHandler(btnDelete_Click);
+            
+            // 
+            // btnEdit (слева от Delete)
+            // 
+            this.btnEdit.Size = new System.Drawing.Size(110, 35);
+            this.btnEdit.TabIndex = 4;
+            this.btnEdit.Text = "Изменить";
+            this.btnEdit.UseVisualStyleBackColor = true;
+            this.btnEdit.Visible = true;
+            this.btnEdit.Enabled = true;
+            this.btnEdit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            this.btnEdit.Location = new System.Drawing.Point(690, 10); // Временная позиция, будет обновлена
+            this.btnEdit.Click += new EventHandler(btnEdit_Click);
+            
+            // 
+            // btnAdd (слева от Edit)
+            // 
+            this.btnAdd.Size = new System.Drawing.Size(110, 35);
+            this.btnAdd.TabIndex = 3;
+            this.btnAdd.Text = "Добавить";
+            this.btnAdd.UseVisualStyleBackColor = true;
+            this.btnAdd.Visible = true;
+            this.btnAdd.Enabled = true;
+            this.btnAdd.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            this.btnAdd.Location = new System.Drawing.Point(580, 10); // Временная позиция, будет обновлена
+            this.btnAdd.Click += new EventHandler(btnAdd_Click);
+            
             // 
             // dgvProducts
             // 
@@ -209,26 +339,46 @@ namespace VANEK2
             this.dgvProducts.AllowUserToDeleteRows = false;
             this.dgvProducts.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             this.dgvProducts.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvProducts.Location = new System.Drawing.Point(10, 45);
+            this.dgvProducts.Anchor = ((AnchorStyles)((((AnchorStyles.Top | AnchorStyles.Bottom) 
+                | AnchorStyles.Left) 
+                | AnchorStyles.Right)));
+            this.dgvProducts.Location = new System.Drawing.Point(10, 50);
+            this.dgvProducts.Margin = new Padding(0);
+            this.dgvProducts.Dock = DockStyle.None; // Убеждаемся, что Dock не установлен
             this.dgvProducts.Name = "dgvProducts";
             this.dgvProducts.ReadOnly = true;
             this.dgvProducts.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            this.dgvProducts.Size = new System.Drawing.Size(970, 520);
             this.dgvProducts.TabIndex = 6;
-            this.dgvProducts.Dock = DockStyle.Fill;
+            
             // 
             // ProductsForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(990, 570);
+            this.Dock = DockStyle.Fill;
+            this.Padding = new Padding(10);
+            
+            // ВАЖНО: Добавляем контролы в правильном порядке
+            // Сначала добавляем DataGridView (он будет внизу по Z-order)
             this.Controls.Add(this.dgvProducts);
+            
+            // Затем добавляем кнопки и элементы управления (они будут поверх DataGridView)
             this.Controls.Add(this.btnDelete);
             this.Controls.Add(this.btnEdit);
             this.Controls.Add(this.btnAdd);
             this.Controls.Add(this.btnRefresh);
             this.Controls.Add(this.txtSearch);
             this.Controls.Add(this.lblSearch);
+            
+            // Устанавливаем порядок отображения (Z-order) - кнопки должны быть поверх DataGridView
+            this.Controls.SetChildIndex(this.dgvProducts, 0);
+            this.Controls.SetChildIndex(this.lblSearch, 1);
+            this.Controls.SetChildIndex(this.txtSearch, 2);
+            this.Controls.SetChildIndex(this.btnRefresh, 3);
+            this.Controls.SetChildIndex(this.btnAdd, 4);
+            this.Controls.SetChildIndex(this.btnEdit, 5);
+            this.Controls.SetChildIndex(this.btnDelete, 6);
+            
             this.Name = "ProductsForm";
             this.Text = "Управление товарами";
             ((System.ComponentModel.ISupportInitialize)(this.dgvProducts)).EndInit();
@@ -250,6 +400,18 @@ namespace VANEK2
                     Количество = p.Quantity,
                     Описание = p.Description
                 }).ToList();
+                
+                // Скрываем колонку ID
+                if (dgvProducts.Columns["Id"] != null)
+                {
+                    dgvProducts.Columns["Id"].Visible = false;
+                }
+                
+                // Убеждаемся, что DataGridView растягивается правильно
+                dgvProducts.Size = new System.Drawing.Size(
+                    this.ClientSize.Width - 20, 
+                    this.ClientSize.Height - 60
+                );
             }
             catch (Exception ex)
             {
@@ -277,6 +439,12 @@ namespace VANEK2
                     Описание = p.Description
                 }).ToList();
                 dgvProducts.DataSource = filtered;
+                
+                // Скрываем колонку ID после фильтрации
+                if (dgvProducts.Columns["Id"] != null)
+                {
+                    dgvProducts.Columns["Id"].Visible = false;
+                }
             }
         }
 
